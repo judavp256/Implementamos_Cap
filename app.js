@@ -20,83 +20,6 @@ const state = {
 };
 
 // ============================================================================
-// DATOS MOCK DE RESPALDO (Para pruebas locales antes de vincular Google Sheet)
-// ============================================================================
-const MOCK_DATA = {
-  empresas: ["Empresa Demo A", "Constructora Pinaker", "Logística Global"],
-  modulos: [
-    {
-      id_modulo: "MOD-101",
-      nombre_modulo: "Seguridad y Salud en el Trabajo (SST)",
-      descripcion: "Fundamentos de protección personal, prevención de riesgos operativos y protocolos de emergencia.",
-      video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", // Video Demo
-      nota_minima: 70,
-      completado: false,
-      nota_obtenida: 0
-    },
-    {
-      id_modulo: "MOD-102",
-      nombre_modulo: "Protocolo de Calidad y Procesos",
-      descripcion: "Normativa técnica, checklists de entrega y aseguramiento de estándares corporativos.",
-      video_url: "dQw4w9WgXcQ",
-      nota_minima: 70,
-      completado: false,
-      nota_obtenida: 0
-    }
-  ],
-  preguntas: {
-    "MOD-101": [
-      {
-        id_pregunta: "P1",
-        pregunta: "¿Cuál es el objetivo principal del equipo de protección personal (EPP)?",
-        opciones: {
-          A: "Mejorar la presentación personal del trabajador.",
-          B: "Prevenir o mitigar el impacto de riesgos laborales en la salud.",
-          C: "Sustituir las capacitaciones de seguridad.",
-          D: "Cumplir únicamente con inspecciones visuales."
-        },
-        respuesta_correcta: "B"
-      },
-      {
-        id_pregunta: "P2",
-        pregunta: "En caso de detectar una condición insegura en el puesto de trabajo, ¿qué acción debe tomarse?",
-        opciones: {
-          A: "Ignorarla si no interrumpe la producción.",
-          B: "Reportarla de inmediato al supervisor o área de SST.",
-          C: "Intentar repararla sin autorización previa.",
-          D: "Esperar a la evaluación de fin de mes."
-        },
-        respuesta_correcta: "B"
-      },
-      {
-        id_pregunta: "P3",
-        pregunta: "¿Qué señalización indica la obligación del uso de casco de seguridad?",
-        opciones: {
-          A: "Señales de fondo azul con pictograma blanco.",
-          B: "Señales triangulares de color amarillo.",
-          C: "Señales de prohibición con círculo rojo.",
-          D: "Verde con pictograma blanco de evacuación."
-        },
-        respuesta_correcta: "A"
-      }
-    ],
-    "MOD-102": [
-      {
-        id_pregunta: "P101",
-        pregunta: "¿Qué documento garantiza el cumplimiento del control de calidad en la entrega?",
-        opciones: {
-          A: "Factura de compra del proveedor.",
-          B: "Checklist de inspección y acta de recepción.",
-          C: "Carné de identificación del colaborador.",
-          D: "Correo electrónico informal."
-        },
-        respuesta_correcta: "B"
-      }
-    ]
-  }
-};
-
-// ============================================================================
 // INICIALIZACIÓN
 // ============================================================================
 document.addEventListener("DOMContentLoaded", () => {
@@ -147,61 +70,52 @@ function checkSession() {
 }
 
 // ============================================================================
-// CLIENTE API (Fetch a Google Apps Script con fallback a MOCK)
+// CLIENTE API GOOGLE APPS SCRIPT
 // ============================================================================
 async function apiRequest(endpointParams, method = "GET", bodyData = null) {
   if (!API_URL || API_URL.includes("SU_APPS_SCRIPT_WEB_APP_URL_AQUI")) {
-    console.warn("API_URL no configurada. Ejecutando en Modo Demostración / Mock.");
-    return handleMockRequest(endpointParams, method, bodyData);
+    alert("API_URL no configurada en app.js");
+    return { status: "error", message: "API_URL no configurada" };
   }
 
   try {
     if (method === "GET") {
       const queryStr = new URLSearchParams(endpointParams).toString();
-      const response = await fetch(`${API_URL}?${queryStr}`);
-      return await response.json();
+      const response = await fetch(`${API_URL}?${queryStr}`, { redirect: "follow" });
+      const text = await response.text();
+      
+      try {
+        return JSON.parse(text);
+      } catch (jsonErr) {
+        console.error("Respuesta no es JSON válido:", text);
+        if (text.includes("Necesitas acceso") || text.includes("accounts.google.com") || text.includes("drive-logo")) {
+          alert("⚠️ ERROR DE PERMISOS EN GOOGLE APPS SCRIPT:\n\nEl despliegue en Apps Script requiere cambiar 'Quién tiene acceso' a 'Cualquier persona' (Anyone).\nActualmente solicita inicio de sesión en Google.");
+        }
+        return { status: "error", message: "Respuesta no válida del servidor" };
+      }
     } else if (method === "POST") {
       const response = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" }, // Google Apps Script requiere text/plain para evitar redirecciones CORS complejas
-        body: JSON.stringify(bodyData)
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(bodyData),
+        redirect: "follow"
       });
-      return await response.json();
+      const text = await response.text();
+      
+      try {
+        return JSON.parse(text);
+      } catch (jsonErr) {
+        console.error("Respuesta POST no es JSON válido:", text);
+        if (text.includes("Necesitas acceso") || text.includes("accounts.google.com") || text.includes("drive-logo")) {
+          alert("⚠️ ERROR DE PERMISOS EN GOOGLE APPS SCRIPT:\n\nEl despliegue en Apps Script requiere cambiar 'Quién tiene acceso' a 'Cualquier persona' (Anyone).");
+        }
+        return { status: "error", message: "Error al guardar resultado en el servidor" };
+      }
     }
   } catch (error) {
-    console.error("Error en petición API. Usando datos de prueba:", error);
-    return handleMockRequest(endpointParams, method, bodyData);
+    console.error("Error de conexión con la API de Google Apps Script:", error);
+    return { status: "error", message: error.toString() };
   }
-}
-
-function handleMockRequest(endpointParams, method, bodyData) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (method === "GET") {
-        const action = endpointParams.action;
-        if (action === "getCompanies") {
-          resolve({ status: "success", data: MOCK_DATA.empresas });
-        } else if (action === "getModules") {
-          resolve({ status: "success", data: MOCK_DATA.modulos });
-        } else if (action === "getQuestions") {
-          const modId = endpointParams.id_modulo;
-          const questions = MOCK_DATA.preguntas[modId] || MOCK_DATA.preguntas["MOD-101"];
-          resolve({ status: "success", data: questions });
-        } else {
-          resolve({ status: "success", data: [] });
-        }
-      } else if (method === "POST") {
-        // Simular guardado
-        const modId = bodyData.id_modulo;
-        const mod = MOCK_DATA.modulos.find(m => m.id_modulo === modId);
-        if (mod) {
-          mod.completado = bodyData.nota_final >= 70;
-          mod.nota_obtenida = bodyData.nota_final;
-        }
-        resolve({ status: "success", message: "MOCK: Guardado exitoso" });
-      }
-    }, 400);
-  });
 }
 
 // ============================================================================
@@ -240,10 +154,14 @@ function updateUserHeader() {
 // ============================================================================
 async function loadCompanies() {
   const select = document.getElementById("select-empresa");
-  select.innerHTML = `<option value="" disabled selected>Cargando empresas...</option>`;
+  select.innerHTML = `<option value="" disabled selected>Cargando empresas desde Google Sheets...</option>`;
   
   const res = await apiRequest({ action: "getCompanies" });
   if (res && res.status === "success" && Array.isArray(res.data)) {
+    if (res.data.length === 0) {
+      select.innerHTML = `<option value="" disabled selected>No hay empresas registradas en Google Sheets (Hoja Matriz_Empresas vacía)</option>`;
+      return;
+    }
     select.innerHTML = `<option value="" disabled selected>Seleccione su empresa</option>`;
     res.data.forEach(emp => {
       const opt = document.createElement("option");
@@ -252,7 +170,7 @@ async function loadCompanies() {
       select.appendChild(opt);
     });
   } else {
-    select.innerHTML = `<option value="" disabled>Error cargando empresas</option>`;
+    select.innerHTML = `<option value="" disabled selected>⚠️ Verifique los permisos de 'Quién tiene acceso' en Apps Script</option>`;
   }
 }
 
