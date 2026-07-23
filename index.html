@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ISG-MÓNICA BETANCUR - Plataforma de Capacitación y Evaluación</title>
+  <meta name="description" content="Sistema empresarial multicliente de capacitación continua y evaluación de desempeño.">
+  
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- YouTube IFrame API Script -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body>
+
+  <!-- HEADER NAVEGACIÓN -->
+  <header class="app-header">
+    <div class="brand-container">
+      <div class="brand-logo">ISG</div>
+      <h1 class="brand-title">ISG-MÓNICA BETANCUR <span>Capacitación</span></h1>
+    </div>
+
+    <div id="user-profile-chip" class="user-profile-badge" style="display: none;">
+      <div class="user-info">
+        <span id="header-user-name" class="user-name">--</span>
+        <span id="header-user-company" class="user-company">--</span>
+      </div>
+      <button id="btn-logout" class="btn-logout" title="Cerrar Sesión">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER FOR SPA VIEWS -->
+  <main class="main-content">
+
+    <!-- ====================================================================
+         VISTA A: LOGIN
+         ==================================================================== -->
+    <section id="view-login" class="view-section view-login active">
+      <div class="login-wrapper">
+        <div class="glass-card login-card">
+          <div class="login-header">
+            <h2>Bienvenido</h2>
+            <p>Ingrese sus credenciales para acceder a sus módulos de entrenamiento.</p>
+          </div>
+
+          <form id="form-login" onsubmit="event.preventDefault();">
+            <div class="form-group">
+              <label for="input-cedula">Cédula o Documento de Identidad</label>
+              <input type="text" id="input-cedula" class="input-control" placeholder="Ej: 1098765432" required autocomplete="off">
+            </div>
+
+            <div class="form-group">
+              <label for="input-nombre">Nombre Completo</label>
+              <input type="text" id="input-nombre" class="input-control" placeholder="Ej: Juan Pérez" required autocomplete="off">
+            </div>
+
+            <div class="form-group">
+              <label for="select-empresa">Empresa</label>
+              <select id="select-empresa" class="input-control" required>
+                <option value="" disabled selected>Cargando empresas...</option>
+              </select>
+            </div>
+
+            <button type="submit" id="btn-login-submit" class="btn-primary">
+              <span>Ingresar a la Plataforma</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VISTA B: DASHBOARD (SELECCIÓN DE MÓDULOS)
+         ==================================================================== -->
+    <section id="view-dashboard" class="view-section view-dashboard">
+      <div class="dashboard-header">
+        <h2 class="dashboard-title">Módulos de Capacitación</h2>
+        <p class="dashboard-subtitle">Seleccione un módulo asignado para ver el video instructivo y realizar la evaluación.</p>
+      </div>
+
+      <div id="modules-grid-container" class="modules-grid">
+        <!-- Renderizado dinámico de tarjetas de módulos por JavaScript -->
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VISTA C: REPRODUCTOR DE VIDEO
+         ==================================================================== -->
+    <section id="view-video" class="view-section view-video">
+      <div class="video-view-container">
+        
+        <div class="video-header">
+          <div>
+            <h2 id="video-module-title">Cargando Módulo...</h2>
+            <p id="video-module-desc" style="color: var(--text-muted); font-size: 0.9rem;">Visualice el video completo.</p>
+          </div>
+          <button id="btn-video-back" class="btn-back-dash">← Volver al Dashboard</button>
+        </div>
+
+        <div class="video-wrapper">
+          <div id="yt-player"></div>
+          <div class="video-shield"></div>
+        </div>
+
+        <div id="video-banner-status" class="video-banner-status">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <div>
+            <strong id="video-status-title">Video en reproducción</strong>
+            <p id="video-status-text" style="font-size: 0.85rem;">Debe reproducir el video hasta el final para habilitar la evaluación.</p>
+          </div>
+        </div>
+
+        <div class="video-actions">
+          <button id="btn-start-evaluation" class="btn-primary" disabled>
+            <span>Iniciar Evaluación</span>
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VISTA D: EVALUACIÓN (UNIDIRECCIONAL)
+         ==================================================================== -->
+    <section id="view-evaluation" class="view-section view-evaluation">
+      <div class="quiz-container">
+        
+        <div class="quiz-progress-bar-wrapper">
+          <div id="quiz-progress-fill" class="quiz-progress-fill"></div>
+        </div>
+
+        <div class="glass-card">
+          <div class="quiz-header">
+            <span id="quiz-step-tag" class="quiz-step-tag">Pregunta 1 de 5</span>
+            <span style="font-size: 0.85rem; color: var(--text-dim);">Navegación Unidireccional</span>
+          </div>
+
+          <h3 id="quiz-question-text" class="question-text">Cargando pregunta...</h3>
+
+          <div id="quiz-options-container" class="options-list">
+            <!-- Renderizado dinámico de opciones A, B, C, D por JavaScript -->
+          </div>
+
+          <div class="quiz-footer">
+            <button id="btn-quiz-next" class="btn-primary" style="width: auto; padding-left: 2rem; padding-right: 2rem;" disabled>
+              <span>Siguiente</span>
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ====================================================================
+       MODAL DE RESULTADO / CELEBRACIÓN
+       ==================================================================== -->
+  <div id="modal-result" class="modal-overlay">
+    <div class="modal-card">
+      <div id="modal-icon" class="modal-icon-circle success">
+        ✓
+      </div>
+      <h2 id="modal-title">¡Evaluación Completada!</h2>
+      <p id="modal-subtitle" style="color: var(--text-muted); font-size: 0.95rem;">Tu resultado ha sido registrado exitosamente.</p>
+      
+      <div id="modal-score" class="modal-score-display" style="color: var(--success);">
+        100%
+      </div>
+
+      <p id="modal-detail-text" style="margin-bottom: 2rem; font-size: 0.9rem; color: var(--text-muted);"></p>
+
+      <button id="btn-modal-close" class="btn-primary">
+        <span>Volver a Módulos</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT PRINCIPAL -->
+  <script src="app.js"></script>
+</body>
+</html>
