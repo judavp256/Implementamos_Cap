@@ -47,12 +47,6 @@ function bindEvents() {
   // Quiz Next / Submit Button
   document.getElementById("btn-quiz-next").addEventListener("click", handleQuizNext);
 
-  // Video Shield Overlay Click (Play/Pause Toggle)
-  const shield = document.getElementById("video-shield");
-  if (shield) {
-    shield.addEventListener("click", handleShieldClick);
-  }
-
   // Modal Close Button
   document.getElementById("btn-modal-close").addEventListener("click", () => {
     closeModal("modal-result");
@@ -330,9 +324,6 @@ function initVideoPlayer(module) {
   document.getElementById("video-status-title").textContent = "Video en reproducción";
   document.getElementById("video-status-text").textContent = "Debe reproducir el video hasta el final para habilitar la evaluación.";
 
-  const playHint = document.getElementById("video-play-hint");
-  if (playHint) playHint.classList.remove("hidden");
-
   const videoId = extractYouTubeID(module.video_url);
 
   // Si el reproductor ya existe, destruir previa instancia
@@ -361,29 +352,11 @@ function initVideoPlayer(module) {
   });
 }
 
-function handleShieldClick() {
-  if (!state.ytPlayer || typeof state.ytPlayer.getPlayerState !== "function") return;
-  
-  const playerState = state.ytPlayer.getPlayerState();
-  // YT.PlayerState.PLAYING === 1
-  if (playerState === YT.PlayerState.PLAYING) {
-    state.ytPlayer.pauseVideo();
-  } else {
-    state.ytPlayer.playVideo();
-  }
-}
-
 // Evento YouTube Player State Change
 function onPlayerStateChange(event) {
-  const playHint = document.getElementById("video-play-hint");
-
-  if (event.data === YT.PlayerState.PLAYING) {
-    if (playHint) playHint.classList.add("hidden");
-  } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.BUFFERING) {
-    if (playHint && !state.videoEnded) playHint.classList.remove("hidden");
-  } else if (event.data === YT.PlayerState.ENDED) {
+  // YT.PlayerState.ENDED === 0
+  if (event.data === YT.PlayerState.ENDED) {
     state.videoEnded = true;
-    if (playHint) playHint.classList.add("hidden");
     
     // Habilitar botón de evaluación
     const btnStartEval = document.getElementById("btn-start-evaluation");
