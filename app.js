@@ -352,8 +352,26 @@ function initVideoPlayer(module) {
   });
 }
 
+// Bloquear atajos de teclado (Barra espaciadora / Tecla K) que puedan pausar el video
+window.addEventListener("keydown", (e) => {
+  const videoSection = document.getElementById("view-video");
+  if (videoSection && videoSection.classList.contains("active") && !state.videoEnded) {
+    if ([" ", "Spacebar", "k", "K", "MediaPlayPause"].includes(e.key) || e.code === "Space") {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+}, true);
+
 // Evento YouTube Player State Change
 function onPlayerStateChange(event) {
+  // REGLA DE NEGOCIO: Si el video se pausa por cualquier motivo antes de finalizar, forzar reproducción de inmediato
+  if (event.data === YT.PlayerState.PAUSED && !state.videoEnded) {
+    if (state.ytPlayer && typeof state.ytPlayer.playVideo === "function") {
+      state.ytPlayer.playVideo();
+    }
+  }
+
   // YT.PlayerState.ENDED === 0
   if (event.data === YT.PlayerState.ENDED) {
     state.videoEnded = true;
