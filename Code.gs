@@ -1,27 +1,29 @@
 /**
  * ============================================================================
- * PLATAFORMA DE CAPACITACIÓN PINAKER - BACK-END GOOGLE APPS SCRIPT (Code.gs)
+ * PLATAFORMA DE CAPACITACIÓN ISG-MÓNICA BETANCUR - BACK-END GOOGLE APPS SCRIPT (Code.gs)
  * ============================================================================
  * 
- * ESTRUCTURA DE LA BASE DE DATOS EN GOOGLE SHEETS:
+ * ESTRUCTURA DE LA BASE DE DATOS EN GOOGLE SHEETS (4 PESTAÑAS OBLIGATORIAS):
  * 
- * 1. Pestaña: "Resultados"
+ * 1. Pestaña: "Base_Usuarios"
+ *    Columnas (Fila 1): [Cedula, Nombre, Empresa, Estado]
+ *    Ejemplo: 1098765432 | Juan Pérez | Empresa A | Habilitado
+ * 
+ * 2. Pestaña: "Resultados"
  *    Columnas (Fila 1): [Timestamp, Cedula, Nombre, Empresa, ID_Modulo, Nota_Final, Aprobado]
  * 
- * 2. Pestaña: "Matriz_Empresas"
+ * 3. Pestaña: "Matriz_Empresas"
  *    Columnas (Fila 1): [Empresa, ID_Modulo, Nombre_Modulo, Descripcion, Video_URL, Nota_Minima]
  * 
- * 3. Pestaña: "Base_Preguntas"
+ * 4. Pestaña: "Base_Preguntas"
  *    Columnas (Fila 1): [ID_Modulo, ID_Pregunta, Pregunta, Opcion_A, Opcion_B, Opcion_C, Opcion_D, Respuesta_Correcta]
  * 
  * INSTRUCCIONES DE DESPLIEGUE:
- * 1. Crear una hoja de cálculo en Google Sheets con las 3 pestañas indicadas arriba.
+ * 1. Crear una hoja de cálculo en Google Sheets con las 4 pestañas indicadas arriba.
  * 2. Ir a Extensiones > Apps Script y pegar este código en Code.gs.
- * 3. Hacer clic en "Desplegar" > "Nuevo despliegue".
- * 4. Seleccionar tipo: "Aplicación Web".
- * 5. Ejecutar como: "Yo" (tu cuenta).
- * 6. Quién tiene acceso: "Cualquier persona" (Anyone).
- * 7. Copiar la URL generada y pegarla en app.js como API_URL.
+ * 3. Hacer clic en "Desplegar" > "Gestionar despliegues" > Editar > Versión: "Nueva versión".
+ * 4. Ejecutar como: "Yo" (tu cuenta).
+ * 5. Quién tiene acceso: "Cualquier persona" (Anyone).
  * ============================================================================
  */
 
@@ -35,10 +37,10 @@ function createJsonResponse(data) {
 /**
  * Manejo de peticiones HTTP GET
  * Soporta las siguientes acciones:
- * - action=getCompanies : Obtiene la lista de empresas registradas
- * - action=getModules&empresa=...&cedula=... : Módulos habilitados y su estado de aprobación
+ * - action=validateUser&cedula=... : Valida si la cédula está habilitada en Base_Usuarios
+ * - action=getModules&empresa=...&cedula=... : Módulos habilitados y su estado (DISPONIBLE, APROBADO, PERDIDO)
  * - action=getQuestions&id_modulo=... : Banco de preguntas para un módulo específico
- * - action=checkStatus&cedula=...&id_modulo=... : Valida si una cédula aprobó un módulo
+ * - action=checkStatus&cedula=...&id_modulo=... : Valida si una cédula aprobó o reprobó un módulo
  */
 function doGet(e) {
   try {
@@ -46,27 +48,58 @@ function doGet(e) {
     var action = params.action;
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // 1. Obtener lista de empresas registradas
-    if (action === "getCompanies") {
-      var sheetMatriz = ss.getSheetByName("Matriz_Empresas");
-      if (!sheetMatriz) return createJsonResponse({ status: "error", message: "Pestaña Matriz_Empresas no encontrada" });
-      
-      var dataMatriz = sheetMatriz.getDataRange().getValues();
-      var empresasSet = {};
-      for (var i = 1; i < dataMatriz.length; i++) {
-        var emp = String(dataMatriz[i][0]).trim();
-        if (emp) empresasSet[emp] = true;
+    // 1. Validar usuario por Cédula en la pestaña Base_Usuarios
+    if (action === "validateUser") {
+      var cedulaReq = String(params.cedula || "").trim();
+      if (!cedulaReq) return createJsonResponse({ status: "error", message: "Por favor ingrese su número de cédula." });
+
+      var sheetUsuarios = ss.getSheetByName("Base_Usuarios");
+      if (!sheetUsuarios) return createJsonResponse({ status: "error", message: "La pestaña Base_Usuarios no existe en el Google Sheet." });
+
+      var dataUsuarios = sheetUsuarios.getDataRange().getValues();
+      var usuarioEncontrado = null;
+
+      for (var i = 1; i < dataUsuarios.length; i++) {
+        var uCedula = String(dataUsuarios[i][0]).trim();
+        var uNombre = String(dataUsuarios[i][1]).trim();
+        var uEmpresa = String(dataUsuarios[i][2]).trim();
+        var uEstado = String(dataUsuarios[i][3]).trim().toUpperCase();
+
+        if (uCedula === cedulaReq) {
+          // Verificar si el estado es Habilitado, Activo, o no está explícitamente Inhabilitado
+          if (uEstado === "HABILITADO" || uEstado === "ACTIVO" || uEstado === "SI" || uEstado === "OK" || uEstado === "") {
+            usuarioEncontrado = {
+              cedula: uCedula,
+              nombre: uNombre,
+              empresa: uEmpresa
+            };
+            break;
+          } else {
+            return createJsonResponse({
+              status: "error",
+              message: "El usuario registrado con esta cédula se encuentra inhabilitado."
+            });
+          }
+        }
       }
-      
-      var empresas = Object.keys(empresasSet);
-      return createJsonResponse({ status: "success", data: empresas });
+
+      if (usuarioEncontrado) {
+        return createJsonResponse({ status: "success", user: usuarioEncontrado });
+      } else {
+        return createJsonResponse({
+          status: "error",
+          message: "Número de cédula no registrado en el sistema o no habilitado."
+        });
+      }
     }
 
     // 2. Obtener módulos habilitados para una empresa y estado por cédula
     if (action === "getModules") {
       var empresa = params.empresa;
       var cedula = params.cedula;
-      if (!empresa) return createJsonResponse({ status: "error", message: "Falta el parámetro 'empresa'" });
+      if (!empresa || !cedula) {
+        return createJsonResponse({ status: "error", message: "Faltan los parámetros 'empresa' y 'cedula'." });
+      }
 
       var sheetMatriz = ss.getSheetByName("Matriz_Empresas");
       var sheetResultados = ss.getSheetByName("Resultados");
@@ -76,19 +109,33 @@ function doGet(e) {
       var dataMatriz = sheetMatriz.getDataRange().getValues();
       var dataResultados = sheetResultados ? sheetResultados.getDataRange().getValues() : [];
 
-      // Mapear módulos aprobados por el usuario
-      var aprobadosMap = {};
+      // Mapear intentos por módulo para el usuario en Resultados
+      // Posibles estados por módulo: "APROBADO", "PERDIDO", "DISPONIBLE"
+      var intentosMap = {};
       for (var r = 1; r < dataResultados.length; r++) {
         var rCedula = String(dataResultados[r][1]).trim();
         var rModulo = String(dataResultados[r][4]).trim();
-        var rAprobado = String(dataResultados[r][6]).trim().toUpperCase();
         var rNota = Number(dataResultados[r][5]) || 0;
+        var rAprobado = String(dataResultados[r][6]).trim().toUpperCase();
 
-        if (rCedula === String(cedula).trim() && (rAprobado === "SI" || rNota >= 70)) {
-          aprobadosMap[rModulo] = {
-            completado: true,
-            nota: rNota
-          };
+        if (rCedula === String(cedula).trim()) {
+          // Si ya tiene un registro previo:
+          if (!intentosMap[rModulo]) {
+            intentosMap[rModulo] = {
+              aprobado: (rAprobado === "SI" || rNota >= 70),
+              nota: rNota,
+              registrado: true
+            };
+          } else {
+            // Si hay múltiples intentos, dar prioridad al aprobado si existe
+            if (rAprobado === "SI" || rNota >= 70) {
+              intentosMap[rModulo].aprobado = true;
+              if (rNota > intentosMap[rModulo].nota) intentosMap[rModulo].nota = rNota;
+            } else if (!intentosMap[rModulo].aprobado) {
+              // Si no está aprobado, conservar la nota más reciente
+              intentosMap[rModulo].nota = rNota;
+            }
+          }
         }
       }
 
@@ -99,16 +146,31 @@ function doGet(e) {
 
         if (rowEmpresa === String(empresa).trim()) {
           var idModulo = String(row[1]).trim();
-          var estadoUser = aprobadosMap[idModulo] || { completado: false, nota: 0 };
+          var notaMinima = Number(row[5]) || 70;
+          var intento = intentosMap[idModulo];
+
+          var estadoModulo = "DISPONIBLE";
+          var notaObtenida = 0;
+
+          if (intento && intento.registrado) {
+            if (intento.aprobado || intento.nota >= notaMinima) {
+              estadoModulo = "APROBADO";
+              notaObtenida = intento.nota;
+            } else {
+              estadoModulo = "PERDIDO";
+              notaObtenida = intento.nota;
+            }
+          }
 
           modulos.push({
             id_modulo: idModulo,
             nombre_modulo: row[2] || "Módulo " + idModulo,
             descripcion: row[3] || "",
             video_url: row[4] || "",
-            nota_minima: Number(row[5]) || 70,
-            completado: estadoUser.completado,
-            nota_obtenida: estadoUser.nota
+            nota_minima: notaMinima,
+            estado: estadoModulo, // "DISPONIBLE" | "APROBADO" | "PERDIDO"
+            completado: estadoModulo === "APROBADO",
+            nota_obtenida: notaObtenida
           });
         }
       }
@@ -147,7 +209,7 @@ function doGet(e) {
       return createJsonResponse({ status: "success", data: preguntas });
     }
 
-    // 4. Validar si una cédula ya aprobó un módulo
+    // 4. Validar estado de un módulo para un usuario
     if (action === "checkStatus") {
       var cedula = params.cedula;
       var idModulo = params.id_modulo;
@@ -157,10 +219,11 @@ function doGet(e) {
 
       var sheetResultados = ss.getSheetByName("Resultados");
       if (!sheetResultados) {
-        return createJsonResponse({ status: "success", aprobado: false, nota: 0 });
+        return createJsonResponse({ status: "success", estado: "DISPONIBLE", nota: 0 });
       }
 
       var dataResultados = sheetResultados.getDataRange().getValues();
+      var intentado = false;
       var aprobado = false;
       var notaMax = 0;
 
@@ -172,6 +235,7 @@ function doGet(e) {
         var rAprobado = String(row[6]).trim().toUpperCase();
 
         if (rCedula === String(cedula).trim() && rModulo === String(idModulo).trim()) {
+          intentado = true;
           if (rNota > notaMax) notaMax = rNota;
           if (rAprobado === "SI" || rNota >= 70) {
             aprobado = true;
@@ -179,7 +243,12 @@ function doGet(e) {
         }
       }
 
-      return createJsonResponse({ status: "success", aprobado: aprobado, nota_final: notaMax });
+      var estadoFinal = "DISPONIBLE";
+      if (intentado) {
+        estadoFinal = aprobado ? "APROBADO" : "PERDIDO";
+      }
+
+      return createJsonResponse({ status: "success", estado: estadoFinal, aprobado: aprobado, nota_final: notaMax });
     }
 
     return createJsonResponse({ status: "error", message: "Acción no válida o no especificada" });
@@ -191,7 +260,7 @@ function doGet(e) {
 
 /**
  * Manejo de peticiones HTTP POST
- * Recibe un JSON payload con: { cedula, nombre, empresa, id_modulo, nota_final }
+ * Recibe un JSON payload con: { cedula, nombre, empresa, id_modulo, nota_final, nota_minima }
  * Registra la nueva evaluación en la pestaña 'Resultados'.
  */
 function doPost(e) {

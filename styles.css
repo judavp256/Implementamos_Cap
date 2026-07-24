@@ -355,6 +355,15 @@ select.input-control option {
   opacity: 1;
 }
 
+.module-card.failed {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.module-card.failed::before {
+  background: var(--danger);
+  opacity: 1;
+}
+
 .module-badge {
   display: inline-flex;
   align-items: center;
@@ -379,6 +388,12 @@ select.input-control option {
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.module-badge.badge-failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .module-title {
@@ -426,6 +441,13 @@ select.input-control option {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-muted);
   border: 1px solid var(--border-card);
+  cursor: not-allowed;
+}
+
+.module-card.failed .btn-start-module {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
   cursor: not-allowed;
 }
 

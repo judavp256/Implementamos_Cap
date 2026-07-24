@@ -65,7 +65,6 @@ function checkSession() {
     loadDashboardModules();
   } else {
     switchView("view-login");
-    loadCompanies();
   }
 }
 
@@ -150,46 +149,40 @@ function updateUserHeader() {
 }
 
 // ============================================================================
-// VISTA A: LOGIN
+// VISTA A: LOGIN (VALIDACIÓN POR CÉDULA HABILITADA)
 // ============================================================================
-async function loadCompanies() {
-  const select = document.getElementById("select-empresa");
-  select.innerHTML = `<option value="" disabled selected>Cargando empresas desde Google Sheets...</option>`;
-  
-  const res = await apiRequest({ action: "getCompanies" });
-  if (res && res.status === "success" && Array.isArray(res.data)) {
-    if (res.data.length === 0) {
-      select.innerHTML = `<option value="" disabled selected>No hay empresas registradas en Google Sheets (Hoja Matriz_Empresas vacía)</option>`;
-      return;
-    }
-    select.innerHTML = `<option value="" disabled selected>Seleccione su empresa</option>`;
-    res.data.forEach(emp => {
-      const opt = document.createElement("option");
-      opt.value = emp;
-      opt.textContent = emp;
-      select.appendChild(opt);
-    });
-  } else {
-    select.innerHTML = `<option value="" disabled selected>⚠️ Verifique los permisos de 'Quién tiene acceso' en Apps Script</option>`;
-  }
-}
+async function handleLoginSubmit() {
+  const inputCedula = document.getElementById("input-cedula");
+  const cedula = inputCedula ? inputCedula.value.trim() : "";
 
-function handleLoginSubmit() {
-  const cedula = document.getElementById("input-cedula").value.trim();
-  const nombre = document.getElementById("input-nombre").value.trim();
-  const empresa = document.getElementById("select-empresa").value;
-
-  if (!cedula || !nombre || !empresa) {
-    alert("Por favor complete todos los campos del formulario.");
+  if (!cedula) {
+    alert("Por favor ingrese su número de cédula.");
     return;
   }
 
-  state.currentUser = { cedula, nombre, empresa };
-  sessionStorage.setItem("pinaker_user", JSON.stringify(state.currentUser));
+  const btnSubmit = document.getElementById("btn-login-submit");
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.querySelector("span").textContent = "Validando Cédula...";
+  }
 
-  updateUserHeader();
-  switchView("view-dashboard");
-  loadDashboardModules();
+  const res = await apiRequest({ action: "validateUser", cedula: cedula });
+
+  if (btnSubmit) {
+    btnSubmit.disabled = false;
+    btnSubmit.querySelector("span").textContent = "Validar Cédula e Ingresar";
+  }
+
+  if (res && res.status === "success" && res.user) {
+    state.currentUser = res.user; // { cedula, nombre, empresa }
+    sessionStorage.setItem("pinaker_user", JSON.stringify(state.currentUser));
+
+    updateUserHeader();
+    switchView("view-dashboard");
+    loadDashboardModules();
+  } else {
+    alert(res ? res.message : "Número de cédula no registrado en el sistema o no habilitado.");
+  }
 }
 
 function handleLogout() {
@@ -200,8 +193,9 @@ function handleLogout() {
     if (state.ytPlayer && typeof state.ytPlayer.destroy === "function") {
       state.ytPlayer.destroy();
     }
+    const inputCedula = document.getElementById("input-cedula");
+    if (inputCedula) inputCedula.value = "";
     switchView("view-login");
-    loadCompanies();
   }
 }
 
@@ -213,7 +207,7 @@ async function loadDashboardModules() {
   container.innerHTML = `
     <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
       <div class="spinner" style="margin: 0 auto 1rem;"></div>
-      <p style="color: var(--text-muted);">Consultando módulos asignados para ${state.currentUser.empresa}...</p>
+      <p style="color: var(--text-muted);">Consultando módulos asignados para ${escapeHTML(state.currentUser.empresa)}...</p>
     </div>
   `;
 
@@ -229,7 +223,7 @@ async function loadDashboardModules() {
   } else {
     container.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; color: var(--danger);">
-        <p>Ocurrió un error al consultar los módulos. Intente nuevamente.</p>
+        <p>Ocurrió un error al consultar los módulos: ${escapeHTML(res ? res.message : "Error de conexión")}</p>
       </div>
     `;
   }
@@ -242,7 +236,7 @@ function renderModulesGrid(modules) {
   if (modules.length === 0) {
     container.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
-        <p>No hay módulos habilitados actualmente para su empresa.</p>
+        <p>No hay módulos habilitados actualmente para la empresa (${escapeHTML(state.currentUser.empresa)}).</p>
       </div>
     `;
     return;
@@ -250,18 +244,31 @@ function renderModulesGrid(modules) {
 
   modules.forEach(mod => {
     const card = document.createElement("div");
-    card.className = `module-card ${mod.completado ? "completed" : ""}`;
+    
+    let cardClass = "module-card";
+    let badgeHTML = "";
+    let buttonHTML = "";
 
-    const badgeHTML = mod.completado
-      ? `<span class="module-badge badge-completed">✓ Completado (${mod.nota_obtenida}%)</span>`
-      : `<span class="module-badge badge-available">● Disponible</span>`;
+    const estado = mod.estado || (mod.completado ? "APROBADO" : "DISPONIBLE");
 
-    const buttonHTML = mod.completado
-      ? `<button class="btn-start-module" disabled><span>Módulo Aprobado</span></button>`
-      : `<button class="btn-start-module" onclick="onSelectModule('${mod.id_modulo}')">
+    if (estado === "APROBADO") {
+      cardClass += " completed";
+      badgeHTML = `<span class="module-badge badge-completed">✓ Aprobado (${mod.nota_obtenida}%)</span>`;
+      buttonHTML = `<button class="btn-start-module" disabled><span>Módulo Aprobado</span></button>`;
+    } else if (estado === "PERDIDO") {
+      cardClass += " failed";
+      badgeHTML = `<span class="module-badge badge-failed">✕ Reprobado (${mod.nota_obtenida}%)</span>`;
+      buttonHTML = `<button class="btn-start-module" disabled><span>Módulo Perdido - Contacte al Admin</span></button>`;
+    } else {
+      // DISPONIBLE
+      badgeHTML = `<span class="module-badge badge-available">● Disponible</span>`;
+      buttonHTML = `<button class="btn-start-module" onclick="onSelectModule('${mod.id_modulo}')">
            <span>Iniciar Capacitación</span>
            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
          </button>`;
+    }
+
+    card.className = cardClass;
 
     card.innerHTML = `
       <div>
@@ -280,7 +287,11 @@ function renderModulesGrid(modules) {
 
 function onSelectModule(idModulo) {
   const mod = state.modules.find(m => m.id_modulo === idModulo);
-  if (!mod || mod.completado) return;
+  if (!mod) return;
+  if (mod.estado === "APROBADO" || mod.estado === "PERDIDO" || mod.completado) {
+    alert("Este módulo se encuentra bloqueado.");
+    return;
+  }
 
   state.activeModule = mod;
   state.videoEnded = false;
