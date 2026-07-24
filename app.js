@@ -38,9 +38,6 @@ function bindEvents() {
   // Logout Button
   document.getElementById("btn-logout").addEventListener("click", handleLogout);
 
-  // Video Navigation Back Button
-  document.getElementById("btn-video-back").addEventListener("click", () => switchView("view-dashboard"));
-
   // Start Evaluation Button
   document.getElementById("btn-start-evaluation").addEventListener("click", startEvaluationView);
 
