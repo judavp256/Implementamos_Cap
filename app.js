@@ -316,6 +316,10 @@ function initVideoPlayer(module) {
   document.getElementById("video-module-title").textContent = module.nombre_modulo;
   document.getElementById("video-module-desc").textContent = module.descripcion;
 
+  // Asegurar que el contenedor del video esté visible
+  const videoWrapper = document.querySelector(".video-wrapper");
+  if (videoWrapper) videoWrapper.style.display = "block";
+
   const btnStartEval = document.getElementById("btn-start-evaluation");
   btnStartEval.disabled = true;
   
@@ -363,6 +367,16 @@ window.addEventListener("keydown", (e) => {
   }
 }, true);
 
+// Reanudar inmediatamente si la pestaña recupera el foco
+document.addEventListener("visibilitychange", () => {
+  const videoSection = document.getElementById("view-video");
+  if (videoSection && videoSection.classList.contains("active") && !state.videoEnded) {
+    if (state.ytPlayer && typeof state.ytPlayer.playVideo === "function") {
+      state.ytPlayer.playVideo();
+    }
+  }
+});
+
 // Evento YouTube Player State Change
 function onPlayerStateChange(event) {
   // REGLA DE NEGOCIO: Si el video se pausa por cualquier motivo antes de finalizar, forzar reproducción de inmediato
@@ -376,6 +390,12 @@ function onPlayerStateChange(event) {
   if (event.data === YT.PlayerState.ENDED) {
     state.videoEnded = true;
     
+    // REGLA DE NEGOCIO: Ocultar el video completamente al finalizar para evitar volver a reproducirlo o interactuar con el player
+    const videoWrapper = document.querySelector(".video-wrapper");
+    if (videoWrapper) {
+      videoWrapper.style.display = "none";
+    }
+
     // Habilitar botón de evaluación
     const btnStartEval = document.getElementById("btn-start-evaluation");
     btnStartEval.disabled = false;
@@ -383,8 +403,8 @@ function onPlayerStateChange(event) {
     // Actualizar estilo del banner informativo
     const bannerStatus = document.getElementById("video-banner-status");
     bannerStatus.classList.add("unlocked");
-    document.getElementById("video-status-title").textContent = "¡Video finalizado exitosamente!";
-    document.getElementById("video-status-text").textContent = "Ya puede proceder a realizar la evaluación del módulo.";
+    document.getElementById("video-status-title").textContent = "¡Capacitación Finalizada Exitosamente!";
+    document.getElementById("video-status-text").textContent = "El video ha sido completado y retirado. Haga clic en Iniciar Evaluación para continuar.";
   }
 }
 
