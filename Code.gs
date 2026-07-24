@@ -184,14 +184,17 @@ function doGet(e) {
       if (!idModulo) return createJsonResponse({ status: "error", message: "Falta el parámetro 'id_modulo'" });
 
       var sheetPreguntas = ss.getSheetByName("Base_Preguntas");
-      if (!sheetPreguntas) return createJsonResponse({ status: "error", message: "Pestaña Base_Preguntas no encontrada" });
+      if (!sheetPreguntas) return createJsonResponse({ status: "error", message: "Pestaña Base_Preguntas no encontrada en Google Sheets." });
 
       var dataPreguntas = sheetPreguntas.getDataRange().getValues();
       var preguntas = [];
+      var targetModulo = String(idModulo).trim().toUpperCase();
 
       for (var i = 1; i < dataPreguntas.length; i++) {
         var row = dataPreguntas[i];
-        if (String(row[0]).trim() === String(idModulo).trim()) {
+        var rowModulo = String(row[0]).trim().toUpperCase();
+
+        if (rowModulo === targetModulo) {
           preguntas.push({
             id_pregunta: row[1],
             pregunta: row[2],

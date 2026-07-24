@@ -439,7 +439,8 @@ async function startEvaluationView() {
     state.questions = res.data;
     renderCurrentQuestion();
   } else {
-    alert("No se pudieron cargar las preguntas del módulo.");
+    const errorMsg = (res && res.message) ? res.message : `No se encontraron preguntas en la pestaña 'Base_Preguntas' de Google Sheets para el ID_Modulo: "${state.activeModule.id_modulo}".`;
+    alert(`⚠️ ATENCIÓN: No fue posible cargar la evaluación.\n\nDetalle: ${errorMsg}\n\nPor favor revise en Google Sheets que la pestaña 'Base_Preguntas' contenga los registros para el ID_Modulo: "${state.activeModule.id_modulo}".`);
     switchView("view-dashboard");
   }
 }
