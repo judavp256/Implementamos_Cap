@@ -510,15 +510,42 @@ select.input-control option {
   border: none;
 }
 
-/* Overlay anti-adelanto / pointer lock si se requiere */
+/* Overlay anti-adelanto 100% estricto */
 .video-shield {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 60px; /* Dejar espacio para dar play si YouTube autostart no se activa */
-  z-index: 10;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
   background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.video-play-hint {
+  background: rgba(11, 15, 25, 0.85);
+  border: 1px solid var(--border-card);
+  padding: 0.8rem 1.4rem;
+  border-radius: var(--radius-lg);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+.video-play-hint.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .video-banner-status {
